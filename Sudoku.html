@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Sudoku</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f4f7f6;
+            margin: 0;
+            padding-top: 40px;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+
+        #sudoku-board {
+            display: grid;
+            grid-template-columns: repeat(9, 45px);
+            grid-template-rows: repeat(9, 45px);
+            gap: 0;
+            border: 3px solid #2c3e50;
+            background-color: white;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        .cell {
+            width: 45px;
+            height: 45px;
+            text-align: center;
+            font-size: 20px;
+            border: 1px solid #bdc3c7;
+            outline: none;
+            box-sizing: border-box;
+            background-color: transparent;
+            cursor: pointer;
+        }
+
+        /* Membuat garis tebal untuk memisahkan kotak 3x3 */
+        .col-2, .col-5 {
+            border-right: 2px solid #2c3e50;
+        }
+        .row-2, .row-5 {
+            border-bottom: 2px solid #2c3e50;
+        }
+
+        /* Styling sel berdasarkan status */
+        .cell.readonly {
+            background-color: #ecf0f1;
+            color: #2c3e50;
+            font-weight: bold;
+            cursor: default;
+        }
+
+        .cell:not(.readonly) {
+            color: #2980b9;
+            background-color: #ffffff;
+        }
+
+        .cell:focus:not(.readonly) {
+            background-color: #e1f5fe;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            transition: 0.2s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        #new-btn {
+            background-color: #27ae60;
+            color: white;
+        }
+        #new-btn:hover { background-color: #219150; }
+
+        #check-btn {
+            background-color: #2980b9;
+            color: white;
+        }
+        #check-btn:hover { background-color: #2471a3; }
+
+        #message {
+            margin-top: 20px;
+            font-size: 18px;
+            font-weight: bold;
+            min-height: 24px;
+        }
+
+        .success { color: #27ae60; }
+        .error { color: #e74c3c; }
+
+    </style>
+</head>
+<body>
+
+    <h1>Game Sudoku</h1>
+    
+    <div id="sudoku-board"></div>
+    
+    <div class="controls">
+        <button id="new-btn" onclick="initGame()">Game Baru</button>
+        <button id="check-btn" onclick="checkWin()">Cek Jawaban</button>
+    </div>
+    
+    <div id="message"></div>
+
+    <script>
+        // Papan dasar Sudoku yang valid (sudah terpecahkan)
+        const baseBoard = [
+            [5, 3, 4, 6, 7, 8, 9, 1, 2],
+            [6, 7, 2, 1, 9, 5, 3, 4, 8],
+            [1, 9, 8, 3, 4, 2, 5, 6, 7],
+            [8, 5, 9, 7, 6, 1, 4, 2, 3],
+            [4, 2, 6, 8, 5, 3, 7, 9, 1],
+            [7, 1, 3, 9, 2, 4, 8, 5, 6],
+            [9, 6, 1, 5, 3, 7, 2, 8, 4],
+            [2, 8, 7, 4, 1, 9, 6, 3, 5],
+            [3, 4, 5, 2, 8, 6, 1, 7, 9]
+        ];
+
+        let currentBoard = [];
+
+        // Fungsi untuk mengacak angka-angka (1-9) agar papan terasa baru
+        function shuffleBoard(board) {
+            let newBoard = board.map(row => [...row]);
+            let nums = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+            
+            // Acak urutan angka
+            for (let i = nums.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [nums[i], nums[j]] = [nums[j], nums[i]];
+            }
+
+            // Ganti angka di papan berdasarkan urutan acak
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) {
+                    newBoard[r][c] = nums[board[r][c] - 1];
+                }
+            }
+            return newBoard;
+        }
+
+        // Fungsi untuk menginisialisasi dan merender game
+        function initGame() {
+            document.getElementById("message").innerText = "";
+            const boardContainer = document.getElementById("sudoku-board");
+            boardContainer.innerHTML = "";
+
+            // Buat papan baru yang sudah diacak
+            let solvedBoard = shuffleBoard(baseBoard);
+            currentBoard = [];
+
+            // Kosongkan beberapa kotak secara acak untuk dimainkan (~40 sel kosong)
+            for (let r = 0; r < 9; r++) {
+                currentBoard.push([]);
+                for (let c = 0; c < 9; c++) {
+                    // Probabilitas 45% untuk mengosongkan sel
+                    if (Math.random() < 0.45) {
+                        currentBoard[r][c] = "";
+                    } else {
+                        currentBoard[r][c] = solvedBoard[r][c];
+                    }
+                }
+            }
+
+            // Render papan ke HTML
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) {
+                    let input = document.createElement("input");
+                    input.type = "text";
+                    input.maxLength = 1;
+                    input.className = "cell";
+                    input.dataset.row = r;
+                    input.dataset.col = c;
+                    
+                    // Tambahkan class untuk styling batas kotak 3x3
+                    if (c === 2 || c === 5) input.classList.add("col-2");
+                    if (r === 2 || r === 5) input.classList.add("row-2");
+
+                    // Filter hanya angka 1-9 yang bisa diketik
+                    input.addEventListener('input', function(e) {
+                        this.value = this.value.replace(/[^1-9]/g, '');
+                    });
+
+                    if (currentBoard[r][c] !== "") {
+                        input.value = currentBoard[r][c];
+                        input.readOnly = true;
+                        input.classList.add("readonly");
+                    }
+
+                    boardContainer.appendChild(input);
+                }
+            }
+        }
+
+        // Fungsi untuk mengecek apakah jawaban pemain benar
+        function checkWin() {
+            let inputs = document.querySelectorAll(".cell");
+            let userBoard = Array.from({ length: 9 }, () => Array(9).fill(0));
+            let isComplete = true;
+
+            // Masukkan data dari HTML ke dalam array 2D
+            inputs.forEach(input => {
+                let r = parseInt(input.dataset.row);
+                let c = parseInt(input.dataset.col);
+                let val = parseInt(input.value);
+
+                if (isNaN(val)) {
+                    isComplete = false;
+                } else {
+                    userBoard[r][c] = val;
+                }
+            });
+
+            const msgDiv = document.getElementById("message");
+
+            if (!isComplete) {
+                msgDiv.innerText = "Papan belum terisi penuh. Lengkapi dulu!";
+                msgDiv.className = "error";
+                return;
+            }
+
+            if (isValidSudoku(userBoard)) {
+                msgDiv.innerText = "🎉 Selamat! Kamu berhasil memecahkan Sudoku!";
+                msgDiv.className = "success";
+            } else {
+                msgDiv.innerText = "❌ Masih ada jawaban yang salah. Coba periksa lagi.";
+                msgDiv.className = "error";
+            }
+        }
+
+        // Fungsi logika validasi aturan Sudoku
+        function isValidSudoku(board) {
+            for (let i = 0; i < 9; i++) {
+                let rowSet = new Set();
+                let colSet = new Set();
+                let boxSet = new Set();
+
+                for (let j = 0; j < 9; j++) {
+                    // Cek Baris
+                    if (rowSet.has(board[i][j])) return false;
+                    rowSet.add(board[i][j]);
+
+                    // Cek Kolom
+                    if (colSet.has(board[j][i])) return false;
+                    colSet.add(board[j][i]);
+
+                    // Cek Kotak 3x3
+                    let r = 3 * Math.floor(i / 3) + Math.floor(j / 3);
+                    let c = 3 * (i % 3) + (j % 3);
+                    if (boxSet.has(board[r][c])) return false;
+                    boxSet.add(board[r][c]);
+                }
+            }
+            return true;
+        }
+
+        // Mulai game saat halaman pertama kali dimuat
+        window.onload = initGame;
+    </script>
+</body>
+</html>
